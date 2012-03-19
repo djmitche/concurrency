@@ -3,7 +3,7 @@ from twisted.internet import protocol, reactor, task
 from twisted.application import service
 from twisted.python import log
 
-class BusClientProtocol(protocol.DatagramProtocol):
+class StreamerProtocol(protocol.DatagramProtocol):
 
     def __init__(self, app, host, port):
         self.app = app
@@ -35,16 +35,17 @@ class BusClientProtocol(protocol.DatagramProtocol):
     def connectionRefused(self):
         print "No one is listening!"
 
-class ServiceClient(service.Service):
+class StreamerService(service.Service):
 
     def __init__(self, app, host, port):
+        self.setName('twbus.streamer')
         self.app = app
         self.host = host
         self.port = port
         self.metrics_loop = task.LoopingCall(self.metrics)
 
     def startService(self):
-        self.protocol = BusClientProtocol(self.app, self.host, self.port)
+        self.protocol = StreamerProtocol(self.app, self.host, self.port)
         self.metrics_loop.start(5, now=False)
         reactor.listenUDP(0, self.protocol)
 
@@ -56,4 +57,4 @@ class ServiceClient(service.Service):
         if len(timestamps) < 2:
             return
         log.msg('%1.2f messages per second' % ((len(timestamps) - 1) / (timestamps[-1] - timestamps[0])),
-                system='ServiceClient')
+                system='streamer')
