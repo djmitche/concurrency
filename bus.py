@@ -2,18 +2,19 @@ import math
 import time
 from socket import *
 from threading import Thread
+import tasklib
 
-class BusMonitor:
+STOPPED, RUNNING, STOPPING = range(3)
+
+class BusMonitor(tasklib.Task):
     def __init__(self):
+        tasklib.Task.__init__(self, name="BusMonitor")
         self.data = {}           # Dictionary of bus data
-        self.thr = Thread(target=self.updater)
-        self.thr.daemon = True
-        self.thr.start()
-    # Method that runs in its own thread, updating the buses dictionary
-    def updater(self):
+
+    def run(self):
         sock = socket(AF_INET, SOCK_DGRAM)
         sock.sendto(b"",("localhost",31337))
-        while True:
+        while self.runnable:
             msg, addr = sock.recvfrom(8192)
             msg = msg.decode('ascii')
             fields = msg.split(",")
@@ -27,18 +28,5 @@ class BusMonitor:
                'lon' : float(fields[6])
             }
             # Save it according to vehicle ID
-            self.data.setdefault(bus['id'], []).append(bus)
+            self.data[bus['id']] = bus
 
-
-busses = BusMonitor()
-while True:
-    time.sleep(1)
-    buslist = sorted(busses.data.keys())[:10]
-    for busid in buslist:
-        bus = busses.data[busid]
-        if len(bus) < 2:
-            continue
-        last, now = bus[-2:]
-        distance = math.sqrt((last['lon'] - now['lon']) ** 2 + (last['lat'] - now['lat']) ** 2)
-        duration = now['timestamp'] - last['timestamp']
-        print(busid, distance/duration)
