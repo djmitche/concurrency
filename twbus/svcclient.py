@@ -1,3 +1,4 @@
+import collections
 from twisted.internet import protocol, reactor, task
 from twisted.application import service
 from twisted.python import log
@@ -10,7 +11,7 @@ class BusClientProtocol(protocol.DatagramProtocol):
         self.port = port
 
         # for metrics
-        self.recent_timestamps = []
+        self.recent_timestamps = collections.deque(maxlen=200)
 
     def startProtocol(self):
         # send an empty packet to the simulator to start receiving data
@@ -56,4 +57,3 @@ class ServiceClient(service.Service):
             return
         log.msg('%1.2f messages per second' % ((len(timestamps) - 1) / (timestamps[-1] - timestamps[0])),
                 system='ServiceClient')
-        self.protocol.recent_timestamps = self.protocol.recent_timestamps[-4:]
