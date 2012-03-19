@@ -4,6 +4,9 @@ import threading
 import logging
 import time
 import sys
+import queue
+
+class TaskStop(Exception): pass
 
 class Task:
     def __init__(self,name="Task"):
@@ -11,6 +14,17 @@ class Task:
         self.state = "INIT"
         self.start_evt = threading.Event()
         self.stop_evt = threading.Event()
+        self.queue = queue.Queue()
+
+    # queue handling
+    def send(self, msg):
+        self.queue.put(msg)
+
+    def recv(self):
+        r = self.queue.get()
+        if r is TaskStop:
+            raise r
+        return r
 
     # Task start
     def start(self):
@@ -30,6 +44,8 @@ class Task:
         self.start_evt.set()
         try:
             self.run()
+        except TaskStop:
+            pass
         except Exception:
             self.exc_info = sys.exc_info()
             self.log.error("Crashed", exc_info=True)
@@ -40,6 +56,7 @@ class Task:
     # Task stop
     def stop(self, wait=False):
         self.runnable = False
+        self.queue.put(TaskStop)
         if wait:
             self.stop_evt.wait()
         self.stop_evt.clear()
