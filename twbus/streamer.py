@@ -31,6 +31,9 @@ class StreamerProtocol(protocol.DatagramProtocol):
         }
         self.app.busdata[bus['id']] = bus
         self.recent_timestamps.append(bus['timestamp'])
+        self.app.mq.produce(
+                'streamer.bus.%s' % (bus['id'],),
+                bus)
 
     def connectionRefused(self):
         print "No one is listening!"
