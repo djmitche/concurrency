@@ -3,6 +3,8 @@ from twisted.python import log, util
 from twisted.internet import defer
 from twisted.web import resource, server, static
 from twisted.application import strports, service
+from twbus import websocket # from Twisted bug 4173
+from twbus import ws
 
 class WWWService(service.MultiService):
 
@@ -66,7 +68,8 @@ class RootResource(Resource):
     def __init__(self, app):
         Resource.__init__(self, app)
         self.putChild('api', ApiResource(app))
-        self.putChild('ui', static.DirectoryLister(util.sibpath(__file__, 'ui')))
+        self.putChild('ws', websocket.WebSocketsResource(ws.HandlerFactory(app)))
+        self.putChild('ui', static.File(util.sibpath(__file__, 'ui')))
 
 
 class ApiResource(Resource):

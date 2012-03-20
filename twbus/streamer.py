@@ -34,6 +34,9 @@ class StreamerProtocol(protocol.DatagramProtocol):
         self.app.mq.produce(
                 'streamer.bus.%s' % (bus['id'],),
                 bus)
+        self.app.mq.produce(
+                'streamer.route.%s' % (bus['route'],),
+                bus)
 
     def connectionRefused(self):
         print "No one is listening!"

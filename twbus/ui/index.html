@@ -1,0 +1,36 @@
+<html>
+    <head>
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+        <script src="/ui/json2.js" type="text/javascript"></script>
+        <script type="text/javascript">
+$(function() {
+    var ws = new WebSocket("ws://euclid.r.igoro.us:8010/ws");  
+    ws.onopen = function() {  
+      console.log("onopen");
+      $('#status').text('open');
+      window.setTimeout(function() {
+        console.log("send");
+        ws.send(JSON.stringify({ type: 'consume', topic: 'streamer.route.6' }));
+      }, 1000);
+      console.log("OPENED");
+    };  
+    ws.onmessage = function (e) {
+      console.log("onmessage", e.data);
+      $('#message').text(e.data);
+    };
+    ws.onerror = function (e) {
+      console.log("onmessage", e);
+      $('#info').error(e.data);
+    };
+    ws.onclose = function() {
+      console.log("onclose");
+      $('#status').text('closed');
+    };
+});
+        </script>
+    </head>
+    <body>
+        <div id="message"></div>
+        <div id="status">init</div>
+    </body>
+</html>
