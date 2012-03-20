@@ -1,12 +1,17 @@
 from twisted.application import service
 from twbus import streamer, www, hardhat
 from twbus.mq import connector as mqconnector
+from twbus.bussim import wrap
 
 class BusApp(service.MultiService):
 
     def __init__(self, svchost, svcport):
         service.MultiService.__init__(self)
         self.setName("twbus")
+
+        self.bussim = wrap.BusSim()
+        self.bussim.setServiceParent(self)
+        self.bussim.setup()
 
         self.mq = mqconnector.MQConnector(self, 'simple')
         self.mq.setServiceParent(self)
