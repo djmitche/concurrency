@@ -9,14 +9,11 @@ class BusApp(service.MultiService):
         service.MultiService.__init__(self)
         self.setName("twbus")
 
-        self.bussim = wrap.BusSim()
-        self.bussim.setServiceParent(self)
-        self.bussim.setup()
-
         self.mq = mqconnector.MQConnector(self, 'simple')
         self.mq.setServiceParent(self)
         self.mq.setup()
 
+        # equiv of busmonitor
         self.streamer = streamer.StreamerService(self, svchost, svcport)
         self.streamer.setServiceParent(self)
 
