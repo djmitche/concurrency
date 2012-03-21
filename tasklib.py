@@ -2,70 +2,85 @@
 
 import threading
 import logging
-import time
 import sys
 import queue
 
-class TaskStop(Exception): pass
+class TaskExit(Exception): pass
+class RecvTimeoutError(Exception): pass
 
 class Task:
     def __init__(self,name="Task"):
         self.name = name
         self.state = "INIT"
-        self.start_evt = threading.Event()
-        self.stop_evt = threading.Event()
-        self.queue = queue.Queue()
-
-    # queue handling
-    def send(self, msg):
-        self.queue.put(msg)
-
-    def recv(self):
-        r = self.queue.get()
-        if r is TaskStop:
-            raise r
-        return r
 
     # Task start
     def start(self):
-        self.start_evt.clear()
-        thr = threading.Thread(target=self.bootstrap)
+        start_evt = threading.Event()
+        thr = threading.Thread(target=self.bootstrap,args=(start_evt,))
         thr.daemon = True
         thr.start()
-        self.start_evt.wait()
+        # Wait for the task to start
+        start_evt.wait()
 
     # Task bootstrap
-    def bootstrap(self):
+    def bootstrap(self,start_event=None):
+        self._exit_evt = threading.Event()
         self.runnable = True
         self.log = logging.getLogger(self.name)
         self.exc_info = None
+        if not hasattr(self,"_messages"):
+            self._messages = queue.Queue()
+            self.messages_received = 0
         self.state = "RUNNING"
         self.log.info("Task starting")
-        self.start_evt.set()
+        if start_event:
+            start_event.set()
         try:
             self.run()
-        except TaskStop:
+        except TaskExit:
             pass
         except Exception:
             self.exc_info = sys.exc_info()
             self.log.error("Crashed", exc_info=True)
-        self.stop_evt.set()
         self.log.info("Exit")
         self.state = "EXIT"
+        self._exit_evt.set()
+
+    # Task join
+    def join(self):
+        self._exit_evt.wait()
+
+    # Task messaging
+    def send(self, msg):
+        self._messages.put(msg)
+
+    def recv(self,*,timeout=None):
+        try:
+            msg = self._messages.get(timeout=timeout)
+        except queue.Empty:
+            raise RecvTimeoutError("No message")
+        if msg is TaskExit:
+            raise TaskExit()
+        self.messages_received += 1
+        return msg
+
+    @property
+    def messages_pending(self):
+        return self._messages.qsize()
 
     # Task stop
-    def stop(self, wait=False):
+    def stop(self):
         self.runnable = False
-        self.queue.put(TaskStop)
-        if wait:
-            self.stop_evt.wait()
-        self.stop_evt.clear()
+        self.send(TaskExit)
 
     # Task finalization
     def finalize(self):
         del self.log
         del self.exc_info
         del self.runnable
+        del self._exit_evt
+        del self._messages
+        del self.messages_received
         self.state = "FINAL"
 
     # Debugging support
