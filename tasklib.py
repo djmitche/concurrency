@@ -9,12 +9,17 @@ class TaskExit(Exception): pass
 class RecvTimeoutError(Exception): pass
 
 class Task:
+    name_counter = 0
     def __init__(self,name="Task"):
+        if '%' in name:
+            self.name_counter += 1
+            name = name.replace('%', str(self.name_counter))
         self.name = name
         self.state = "INIT"
 
     # Task start
     def start(self):
+        register(self.name, self)
         start_evt = threading.Event()
         thr = threading.Thread(target=self.bootstrap,args=(start_evt,))
         thr.daemon = True
@@ -70,6 +75,7 @@ class Task:
 
     # Task stop
     def stop(self):
+        unregister(self.name)
         self.runnable = False
         self.send(TaskExit)
 
@@ -90,3 +96,23 @@ class Task:
             pdb.post_mortem(self.exc_info[2])
         else:
             print("No traceback")
+
+# task messaging
+_registry = {}
+
+def register(name, task):
+    _registry[name] = task
+
+def unregister(name):
+    del _registry[name]
+
+def lookup(name):
+    return _registry.get(name)
+
+def send(target_name,msg):
+    target = lookup(target_name)
+    if target:
+        return target.send(msg)
+    else:
+        print("Warning: target %r not registered" % target_name)
+        return False

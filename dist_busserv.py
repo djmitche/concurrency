@@ -19,11 +19,11 @@ response_template = """\
 """
 
 class ClientTask(tasklib.Task):
-    def __init__(self,client_sock,client_addr,busdb):
-        super(ClientTask,self).__init__(name="client")
+    def __init__(self,client_sock,client_addr,busdb_name):
+        super(ClientTask,self).__init__(name="client-%")
         self.client_sock = client_sock
         self.client_addr = client_addr
-        self.busdb = busdb
+        self.busdb_name = busdb_name
 
     def run(self):
         try:
@@ -38,24 +38,26 @@ class ClientTask(tasklib.Task):
                     break
                 busid = busid_bytes.decode('ascii')
                 # Send a message to the database task and get the response
-                self.busdb.send(('getid',(busid,self)))
+                tasklib.send(self.busdb_name, ('getid',(busid,self.name)))
                 try:
                     tag, bus = self.recv(timeout=10)
                     if bus:
                         resp = response_template.format(**bus)
                         self.client_sock.send(resp.encode('ascii'))
+                        self.client_sock.close()
                     else:
-                        self.client_sock.send(b"unknown")
+                        self.client_sock.send(b"unknown\n")
+                        self.client_sock.close()
                 except tasklib.RecvTimeoutError:
-                    self.client_sock.send(b"timeout")
+                    self.client_sock.send(b"timeout\n")
         finally:
             self.client_sock.close()
 
 class ServerTask(tasklib.Task):
-    def __init__(self,server_address,busdb):
+    def __init__(self,server_address,busdb_name):
         super(ServerTask,self).__init__(name="server")
         self.server_address = server_address
-        self.busdb = busdb
+        self.busdb_name = busdb_name
 
     def run(self):
         self.log.info("Server starting on %s", self.server_address)
@@ -70,7 +72,7 @@ class ServerTask(tasklib.Task):
                     c,a = serv_sock.accept()
                 except socket.timeout:
                     continue
-                ClientTask(c,a,self.busdb).start()
+                ClientTask(c,a,self.busdb_name).start()
         finally:
             serv_sock.close()
 
@@ -83,7 +85,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     busdb_task = dist_busdb.BusDbTask()
     busdb_task.start()
-    busmon_task = dist_bus.BusMonitorTask(target=busdb_task)
+    busmon_task = dist_bus.BusMonitorTask(target='busdb')
     busmon_task.start()
-    server = ServerTask(("",15000), busdb_task)
+    server = ServerTask(("",15000), busdb_task.name)
     server.start()

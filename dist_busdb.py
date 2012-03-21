@@ -19,4 +19,4 @@ class BusDbTask(tasklib.Task):
             elif tag == 'getid':
                 busid, target = msg
                 bus = self.data.get(busid)
-                target.send(('bus',copy.deepcopy(bus)))
+                tasklib.send(target, ('bus',copy.deepcopy(bus)))

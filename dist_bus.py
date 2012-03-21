@@ -31,6 +31,6 @@ class BusMonitorTask(tasklib.Task):
                     'lat' : float(fields[5]),
                     'lon' : float(fields[6])
                 }
-                self.target.send(('bus',bus))
+                tasklib.send(self.target, ('bus',bus))
         finally:
             sock.close()
