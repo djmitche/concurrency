@@ -1,4 +1,5 @@
 # dist_busdb.py
+import time
 import tasklib
 import copy
 
@@ -19,4 +20,23 @@ class BusDbTask(tasklib.Task):
             elif tag == 'getid':
                 busid, target = msg
                 bus = self.data.get(busid)
+                time.sleep(1)
                 tasklib.send(target, ('bus',copy.deepcopy(bus)))
+
+if __name__ == '__main__':
+    import taskdist
+    import logging
+    import time
+
+    logging.basicConfig(level=logging.INFO)
+
+    # Start the dispatcher                                                                      
+    taskdist.start_dispatcher(("localhost",18000),authkey=b"peekaboo")
+    taskdist.start_resolver(authkey=b"peekaboo")
+
+    busdb_task = BusDbTask()
+    busdb_task.start()
+    tasklib.register("busdb",busdb_task,export=True)
+
+    while True:
+        time.sleep(1)

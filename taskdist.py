@@ -74,80 +74,7 @@ def start_dispatcher(address,authkey):
     _dispatcher.start()
 
 
-# Task that receives messages for all unknown targets and creates proxies.                      
-class ResolverTask(tasklib.Task):
-    CACHE_LIFETIME = 1.0
-    def __init__(self,host,port,db,authkey):
-        super().__init__(name="resolver")
-        self.host = host
-        self.port = port
-        self.db = db
-        self.authkey = authkey
-        self.resolver_cache = {}
-
-    def cache_get(self, key):
-        if key not in self.resolver_cache:
-            return
-        v, t = self.resolver_cache[key]
-        if t < time.time() - self.CACHE_LIFETIME:
-            return
-        print("hit")
-        return v
-
-    def cache_put(self, key, value):
-        print("put")
-        self.resolver_cache[key] = (value, time.time())
-
-    def run(self):
-        # Establish a connection with the redis server                                          
-        r = redis.Redis(host=self.host,port=self.port,db=self.db)
-        tasklib.register("resolver",self)
-        try:
-            while True:
-                # Get an outgoing message                                                       
-                target, msg = self.recv()
-
-                # Check if a proxy was already registered                                       
-                if tasklib.lookup(target):
-                    tasklib.send(target,msg)
-                    continue
-
-                try:
-                    # See if the cache knows anything about the target
-                    target_info = self.cache_get(target)
-
-                    # See if redis knows anything about the target                                  
-                    if not target_info:
-                        target_info = r.get(target)
-                        if target_info:
-                            self.cache_put(target, target_info)
-
-                    if target_info:
-                        host, port = target_info.decode('utf-8').split(":")
-                        port = int(port)
-
-                        # Create a proxy task                                                   
-                        proxy(target,target,(host,port),self.authkey)
-                        self.log.info("Connected to %s", (host,port))
-
-                        # Send the message to the proxy                                         
-                        tasklib.send(target,msg)
-                    else:
-                        self.log.info("Nothing known about target '%s'", target)
-                except Exception as e:
-                    self.log.info("Couldn't resolve '%s' : %s:%s", target, type(e),e)
-        finally:
-            tasklib.unregister("resolver")
-
-_resolver = None
-def start_resolver(authkey):
-    global _resolver
-    if _resolver:
-        return
-    _resolver = ResolverTask(REDIS_HOST, REDIS_PORT, REDIS_DB,authkey)
-    _resolver.start()
-
-
+...
 # Set of all task names that we registered
 _registered = set()
 
@@ -173,3 +100,55 @@ def global_unregister(*targets):
 # Unregister all tasks at interpreter exit                                            
 import atexit
 atexit.register(lambda : global_unregister(*_registered))
+
+# Task that receives messages for all unknown targets and creates proxies.                      
+class ResolverTask(tasklib.Task):
+    def __init__(self,host,port,db,authkey):
+        super().__init__(name="resolver")
+        self.host = host
+        self.port = port
+        self.db = db
+        self.authkey = authkey
+
+    def run(self):
+        # Establish a connection with the redis server                                          
+        r = redis.Redis(host=self.host,port=self.port,db=self.db)
+        tasklib.register("resolver",self)
+        try:
+            while True:
+                # Get an outgoing message                                                       
+                target, msg = self.recv()
+
+                print("RESOLVER:", target, msg)
+
+                # Check if a proxy was already registered                                       
+                if tasklib.lookup(target):
+                    tasklib.send(target,msg)
+                    continue
+
+                # See if redis knows anything about the target                                  
+                try:
+                    target_info = r.get(target)
+                    if target_info:
+                        host, port = target_info.decode('utf-8').split(":")
+                        port = int(port)
+
+                        # Create a proxy task                                                   
+                        proxy(target,target,(host,port),self.authkey)
+                        self.log.info("Connected to %s", (host,port))
+                        # Send the message to the proxy                                         
+                        tasklib.send(target,msg)
+                    else:
+                        self.log.info("Nothing known about target '%s'", target)
+                except Exception as e:
+                    self.log.info("Couldn't resolve '%s' : %s:%s", target, type(e),e)
+        finally:
+            tasklib.unregister("resolver")
+
+_resolver = None
+def start_resolver(authkey):
+    global _resolver
+    if _resolver:
+        return
+    _resolver = ResolverTask(REDIS_HOST, REDIS_PORT, REDIS_DB,authkey)
+    _resolver.start()

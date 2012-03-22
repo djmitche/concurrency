@@ -20,7 +20,6 @@ class Task:
 
     # Task start
     def start(self):
-        print("REG?")
         register(self.name, self, export=self.export)
         start_evt = threading.Event()
         thr = threading.Thread(target=self.bootstrap,args=(start_evt,))
@@ -108,6 +107,7 @@ _registry = {}
 
 def register(name, task, *, export=False):       # Python-3 keyword-only argument
     _registry[name] = task
+    print("REGISTER", name, "export =", export)
     if export:
         taskdist.global_register(name)
     return task
@@ -121,6 +121,8 @@ def lookup(name):
     return _registry.get(name)
 
 def send(target_name,msg):
+    if target_name != 'busdb' or msg[0] != 'bus':
+        print("SEND", target_name, msg)
     target = lookup(target_name)
     if target:
         return target.send(msg)

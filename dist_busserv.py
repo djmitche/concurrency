@@ -5,6 +5,7 @@
 import socket
 import tasklib
 import sys
+import uuid
 
 response_template = """\
 <?xml version="1.0"?>
@@ -20,7 +21,8 @@ response_template = """\
 
 class ClientTask(tasklib.Task):
     def __init__(self,client_sock,client_addr,busdb_name):
-        super(ClientTask,self).__init__(name="client-%")
+        name = 'client-%s' % uuid.uuid4()
+        super(ClientTask,self).__init__(name=name)
         self.client_sock = client_sock
         self.client_addr = client_addr
         self.busdb_name = busdb_name
@@ -40,9 +42,13 @@ class ClientTask(tasklib.Task):
                     break
                 busid = busid_bytes.decode('ascii').strip()
                 # Send a message to the database task and get the response
+                print("sending")
                 tasklib.send(self.busdb_name, ('getid',(busid,self.name)))
+                print("sent")
                 try:
+                    print("rxing")
                     tag, bus = self.recv(timeout=10)
+                    print("rx'd")
                     if bus:
                         resp = response_template.format(**bus)
                         self.client_sock.send(resp.encode('ascii'))
@@ -78,28 +84,24 @@ class ServerTask(tasklib.Task):
         finally:
             serv_sock.close()
 
-# To run, use 'python3 -i dist_busserv.py dispatchport servport'
+# To run, use 'python3 dist_busserv.py servport'
 if __name__ == '__main__':
     import logging
-    import dist_bus
-    import dist_busdb
     import taskdist
+    import time
 
-    if len(sys.argv) != 3:
-        print("Usage %s: dispatchport servport")
+    if len(sys.argv) != 2:
+        print("Usage %s: servport")
         raise SystemExit(1)
 
-    dispatchport = int(sys.argv[1])
-    servport = int(sys.argv[2])
+    servport = int(sys.argv[1])
     
     logging.basicConfig(level=logging.INFO)
-    # Launch the dispatcher
-    taskdist.start_dispatcher(("localhost",dispatchport),authkey=b"peekaboo")
-
-    # Create the bus database and server tasks
-    busdb_task = dist_busdb.BusDbTask()
-    busdb_task.start()
-    tasklib.register("busdb",busdb_task)
-
-    server = ServerTask(("",servport), "busdb")
+    taskdist.start_dispatcher(("localhost",18001),authkey=b"peekaboo")
+    taskdist.start_resolver(authkey=b"peekaboo")
+    server = ServerTask(("localhost",servport), "busdb")
     server.start()
+
+    # Spin
+    while True:
+        time.sleep(1)
