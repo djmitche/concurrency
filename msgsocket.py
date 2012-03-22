@@ -33,9 +33,8 @@ class MessageSocket:
 if __name__ == '__main__':
     import socket
     serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    serv.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
     serv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    serv.bind(("",21000))
+    serv.bind(("",20000))
     serv.listen(1)
     print("Waiting for connection on port 20000")
     client_sock, addr = serv.accept()
@@ -45,4 +44,13 @@ if __name__ == '__main__':
     # Echo messages back
     while True:
         msg = client.recv()
-        client.send(b"GOT:"+msg)
+        client.send(msg)
+
+
+            
+            
+            
+            
+    
+
+        

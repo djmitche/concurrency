@@ -6,14 +6,10 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-pool = worker.WorkerPool(8)
+from rpcproxy import RPCProxy
+proxy = RPCProxy()
+proxy.connect(("localhost",22000))
+print(proxy.add(2,3))
+print(proxy.sub(4,5))
+print(proxy.add([1,2,3],[4,5]))
 
-pool.start()
-results = [pool.apply(geocode.streetname,(41.8007,-87.7297))
-                                for n in range(8)]
-for r in results:
-    print(r.get())       
-
-pool.stop()
-
-time.sleep(1)
