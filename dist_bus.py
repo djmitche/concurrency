@@ -42,8 +42,8 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
 
-    # Register a proxy to the database
-    taskdist.proxy("busdb","busdb", ("localhost", 16000), authkey=b"peekaboo")
+    # Fire up the resolver
+    taskdist.start_resolver(authkey=b"peekaboo")
    
     # Launch the bus monitor
     busmon_task = BusMonitorTask(target="busdb")

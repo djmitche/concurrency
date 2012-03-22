@@ -10,16 +10,18 @@ class RecvTimeoutError(Exception): pass
 
 class Task:
     name_counter = 0
-    def __init__(self,name="Task"):
+    def __init__(self,name="Task", export=True):
         if '%' in name:
             self.name_counter += 1
             name = name.replace('%', str(self.name_counter))
         self.name = name
         self.state = "INIT"
+        self.export = export
 
     # Task start
     def start(self):
-        register(self.name, self)
+        print("REG?")
+        register(self.name, self, export=self.export)
         start_evt = threading.Event()
         thr = threading.Thread(target=self.bootstrap,args=(start_evt,))
         thr.daemon = True
@@ -97,14 +99,23 @@ class Task:
         else:
             print("No traceback")
 
-# task messaging
+# ----------------------------------------------------------------------                        
+# Task Messaging                                                                         
+# ----------------------------------------------------------------------                        
+
+import taskdist
 _registry = {}
 
-def register(name, task):
+def register(name, task, *, export=False):       # Python-3 keyword-only argument
     _registry[name] = task
+    if export:
+        taskdist.global_register(name)
+    return task
 
 def unregister(name):
-    del _registry[name]
+    if name in _registry:
+        del _registry[name]
+        taskdist.global_unregister(name)
 
 def lookup(name):
     return _registry.get(name)
@@ -114,5 +125,7 @@ def send(target_name,msg):
     if target:
         return target.send(msg)
     else:
-        print("Warning: target %r not registered" % target_name)
-        return False
+        # Send the message to the resolver (if available)                                       
+        resolver = lookup("resolver")
+        if resolver:
+            resolver.send((target_name,msg))
