@@ -34,3 +34,21 @@ class BusMonitorTask(tasklib.Task):
                 tasklib.send(self.target, ('bus',bus))
         finally:
             sock.close()
+
+if __name__ == '__main__':
+    import taskdist
+    import time
+    import logging
+
+    logging.basicConfig(level=logging.INFO)
+
+    # Register a proxy to the database
+    taskdist.proxy("busdb","busdb", ("localhost", 16000), authkey=b"peekaboo")
+   
+    # Launch the bus monitor
+    busmon_task = BusMonitorTask(target="busdb")
+    busmon_task.start()
+    
+    # Spin
+    while True:
+        time.sleep(1)

@@ -32,11 +32,13 @@ class ClientTask(tasklib.Task):
             while self.runnable:
                 try:
                     busid_bytes = self.client_sock.recv(16)
+                except socket.error:
+                    return
                 except socket.timeout:
                     continue
                 if not busid_bytes:
                     break
-                busid = busid_bytes.decode('ascii')
+                busid = busid_bytes.decode('ascii').strip()
                 # Send a message to the database task and get the response
                 tasklib.send(self.busdb_name, ('getid',(busid,self.name)))
                 try:
@@ -76,16 +78,28 @@ class ServerTask(tasklib.Task):
         finally:
             serv_sock.close()
 
-# To run, use 'python3 -i dist_busserv.py'
+# To run, use 'python3 -i dist_busserv.py dispatchport servport'
 if __name__ == '__main__':
     import logging
     import dist_bus
     import dist_busdb
+    import taskdist
 
+    if len(sys.argv) != 3:
+        print("Usage %s: dispatchport servport")
+        raise SystemExit(1)
+
+    dispatchport = int(sys.argv[1])
+    servport = int(sys.argv[2])
+    
     logging.basicConfig(level=logging.INFO)
+    # Launch the dispatcher
+    taskdist.start_dispatcher(("localhost",dispatchport),authkey=b"peekaboo")
+
+    # Create the bus database and server tasks
     busdb_task = dist_busdb.BusDbTask()
     busdb_task.start()
-    busmon_task = dist_bus.BusMonitorTask(target='busdb')
-    busmon_task.start()
-    server = ServerTask(("",15000), busdb_task.name)
+    tasklib.register("busdb",busdb_task)
+
+    server = ServerTask(("",servport), "busdb")
     server.start()
