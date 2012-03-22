@@ -3,7 +3,7 @@ from twisted.internet import protocol, reactor, task
 from twisted.application import service
 from twisted.python import log
 
-class StreamerProtocol(protocol.DatagramProtocol):
+class MonitorProtocol(protocol.DatagramProtocol):
 
     def __init__(self, app, host, port):
         self.app = app
@@ -32,26 +32,26 @@ class StreamerProtocol(protocol.DatagramProtocol):
         self.app.busdata[bus['id']] = bus
         self.recent_timestamps.append(bus['timestamp'])
         self.app.mq.produce(
-                'streamer.bus.%s' % (bus['id'],),
+                'monitor.bus.%s' % (bus['id'],),
                 bus)
         self.app.mq.produce(
-                'streamer.route.%s' % (bus['route'],),
+                'monitor.route.%s' % (bus['route'],),
                 bus)
 
     def connectionRefused(self):
         print "No one is listening!"
 
-class StreamerService(service.Service):
+class MonitorService(service.Service):
 
     def __init__(self, app, host, port):
-        self.setName('twbus.streamer')
+        self.setName('twbus.monitor')
         self.app = app
         self.host = host
         self.port = port
         self.metrics_loop = task.LoopingCall(self.metrics)
 
     def startService(self):
-        self.protocol = StreamerProtocol(self.app, self.host, self.port)
+        self.protocol = MonitorProtocol(self.app, self.host, self.port)
         self.metrics_loop.start(5, now=False)
         reactor.listenUDP(0, self.protocol)
 
@@ -63,4 +63,4 @@ class StreamerService(service.Service):
         if len(timestamps) < 2:
             return
         log.msg('%1.2f messages per second' % ((len(timestamps) - 1) / (timestamps[-1] - timestamps[0])),
-                system='streamer')
+                system='monitor')

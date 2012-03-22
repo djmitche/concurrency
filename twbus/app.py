@@ -1,7 +1,6 @@
 from twisted.application import service
-from twbus import streamer, www, hardhat
+from twbus import monitor, www, hardhat, busdb, tcpclient
 from twbus.mq import connector as mqconnector
-from twbus.bussim import wrap
 
 class BusApp(service.MultiService):
 
@@ -14,11 +13,17 @@ class BusApp(service.MultiService):
         self.mq.setup()
 
         # equiv of busmonitor
-        self.streamer = streamer.StreamerService(self, svchost, svcport)
-        self.streamer.setServiceParent(self)
+        self.monitor = monitor.MonitorService(self, svchost, svcport)
+        self.monitor.setServiceParent(self)
 
         self.www = www.WWWService(self)
         self.www.setServiceParent(self)
+
+        self.busdb = busdb.BusDb(self)
+        self.busdb.setServiceParent(self)
+
+        self.tcpclient = tcpclient.ClientService(self, 'tcp:15000')
+        self.tcpclient.setServiceParent(self)
 
         self.hardhat = hardhat.HardhatService(self)
         self.hardhat.setServiceParent(self)
